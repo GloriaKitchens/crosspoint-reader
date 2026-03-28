@@ -49,6 +49,16 @@ See [the user guide](./USER_GUIDE.md) for instructions on operating CrossPoint, 
 
 For more details about the scope of the project, see the [SCOPE.md](SCOPE.md) document.
 
+### Planned Features
+
+The following features are planned for future releases. See [FEATURES.md](FEATURES.md) for detailed descriptions and implementation notes.
+
+- [ ] Page bookmarking — save and return to specific pages within a book
+- [ ] Book completion tracking — mark books as finished and browse a "Read" list
+- [ ] Reading time tracking — per-session and cumulative time spent reading each book
+- [ ] Web interface: multi-file upload — select and upload multiple files at once from the browser
+- [ ] Per-book progress display — show percentage read and estimated pages remaining on the home and library screens
+
 ## Installing
 
 ### Web (latest firmware)
@@ -99,24 +109,48 @@ Connect your Xteink X4 to your computer via USB-C and run the following command.
 ```sh
 pio run --target upload
 ```
+
+### Testing new firmware on your Xteink X4
+
+After flashing, follow these steps to verify the firmware is working correctly:
+
+1. **Confirm the device boots** — the CrossPoint splash screen should appear within a few seconds of powering on.
+2. **Check the firmware version** — navigate to **Settings → System** on the device and confirm the version string matches your build.
+3. **Open a book** — place an EPUB on the SD card (either manually or via the Wi-Fi file manager), then open it from the **Browse Files** screen and turn a few pages.
+4. **Verify reading progress is saved** — close the book, return to the home screen, and re-open the book. It should resume from the last page.
+5. **Test Wi-Fi upload** — navigate to the **File Transfer** screen, connect to your network, and upload a file from your browser.
+6. **Test OTA update** — if you have a newer firmware `.bin`, use the OTA fast flash controls at https://xteink.dve.al/ to update wirelessly.
+
+If any step fails, capture serial logs (see [Debugging](#debugging) below) and open an issue.
+
+#### Downloading a pre-built firmware binary
+
+Every tagged release publishes a `firmware.bin` to the [GitHub Releases page](https://github.com/crosspoint-reader/crosspoint-reader/releases). To flash a specific release:
+
+1. Download `firmware.bin` from the release of your choice.
+2. Connect your Xteink X4 via USB-C.
+3. Go to https://xteink.dve.al/ and use the **"OTA fast flash controls"** section to flash the downloaded file.
+
 ### Debugging
 
-After flashing the new features, it’s recommended to capture detailed logs from the serial port.
+After flashing new firmware, it’s recommended to capture detailed logs from the serial port.
 
 First, make sure all required Python packages are installed:
 
-```python
+```sh
 python3 -m pip install pyserial colorama matplotlib
 ```
-after that run the script:
+
+Then run the monitoring script:
+
 ```sh
-# For Linux
-# This was tested on Debian and should work on most Linux systems.
+# Linux (tested on Debian)
 python3 scripts/debugging_monitor.py
 
-# For macOS
+# macOS
 python3 scripts/debugging_monitor.py /dev/cu.usbmodem2101
 ```
+
 Minor adjustments may be required for Windows.
 
 ## Internals
