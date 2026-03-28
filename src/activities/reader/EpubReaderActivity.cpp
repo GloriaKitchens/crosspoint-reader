@@ -58,16 +58,27 @@ void EpubReaderActivity::onEnter() {
 
   FsFile f;
   if (Storage.openFileForRead("ERS", epub->getCachePath() + "/progress.bin", f)) {
-    uint8_t data[6];
-    int dataSize = f.read(data, 6);
-    if (dataSize == 4 || dataSize == 6) {
+    uint8_t data[8];
+    int dataSize = f.read(data, 8);
+    // New versioned format: [version(1B), spine(2B), page(2B), pageCount(2B), finished(1B)] = 8 bytes
+    if (dataSize == 8 && data[0] == ReaderUtils::PROGRESS_BIN_VERSION) {
+      currentSpineIndex = data[1] + (data[2] << 8);
+      nextPageNumber = data[3] + (data[4] << 8);
+      cachedSpineIndex = currentSpineIndex;
+      cachedChapterTotalPageCount = data[5] + (data[6] << 8);
+      bookFinished = data[7] != 0;
+      LOG_DBG("ERS", "Loaded cache (v1): %d, %d, finished=%d", currentSpineIndex, nextPageNumber,
+              static_cast<int>(bookFinished));
+    } else if (dataSize == 4 || dataSize == 6) {
+      // Legacy unversioned format: spine(2B), page(2B) [, pageCount(2B)]
       currentSpineIndex = data[0] + (data[1] << 8);
       nextPageNumber = data[2] + (data[3] << 8);
       cachedSpineIndex = currentSpineIndex;
-      LOG_DBG("ERS", "Loaded cache: %d, %d", currentSpineIndex, nextPageNumber);
-    }
-    if (dataSize == 6) {
-      cachedChapterTotalPageCount = data[4] + (data[5] << 8);
+      if (dataSize == 6) {
+        cachedChapterTotalPageCount = data[4] + (data[5] << 8);
+      }
+      bookFinished = false;
+      LOG_DBG("ERS", "Loaded cache (legacy): %d, %d", currentSpineIndex, nextPageNumber);
     }
     f.close();
   }
@@ -147,7 +158,7 @@ void EpubReaderActivity::loop() {
     const int bookProgressPercent = clampPercent(static_cast<int>(bookProgress + 0.5f));
     startActivityForResult(std::make_unique<EpubReaderMenuActivity>(
                                renderer, mappedInput, epub->getTitle(), currentPage, totalPages, bookProgressPercent,
-                               SETTINGS.orientation, !currentPageFootnotes.empty()),
+                               SETTINGS.orientation, !currentPageFootnotes.empty(), bookFinished),
                            [this](const ActivityResult& result) {
                              // Always apply orientation change even if the menu was cancelled
                              const auto& menu = std::get<MenuResult>(result.data);
@@ -401,6 +412,11 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       }
       break;
     }
+    case EpubReaderMenuActivity::MenuAction::MARK_FINISHED: {
+      setFinished(!bookFinished);
+      requestUpdate();
+      break;
+    }
   }
 }
 
@@ -503,6 +519,10 @@ void EpubReaderActivity::render(RenderLock&& lock) {
 
   // Show end of book screen
   if (currentSpineIndex == epub->getSpineItemsCount()) {
+    // Auto-mark the book as finished when the reader reaches the end.
+    if (!bookFinished) {
+      setFinished(true);
+    }
     renderer.clearScreen();
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_END_OF_BOOK), true, EpdFontFamily::BOLD);
     renderer.displayBuffer();
@@ -646,19 +666,36 @@ void EpubReaderActivity::render(RenderLock&& lock) {
 void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageCount) {
   FsFile f;
   if (Storage.openFileForWrite("ERS", epub->getCachePath() + "/progress.bin", f)) {
-    uint8_t data[6];
-    data[0] = currentSpineIndex & 0xFF;
-    data[1] = (currentSpineIndex >> 8) & 0xFF;
-    data[2] = currentPage & 0xFF;
-    data[3] = (currentPage >> 8) & 0xFF;
-    data[4] = pageCount & 0xFF;
-    data[5] = (pageCount >> 8) & 0xFF;
-    f.write(data, 6);
+    // New versioned format: [version(1B), spine(2B), page(2B), pageCount(2B), finished(1B)] = 8 bytes
+    uint8_t data[8];
+    data[0] = ReaderUtils::PROGRESS_BIN_VERSION;
+    data[1] = spineIndex & 0xFF;
+    data[2] = (spineIndex >> 8) & 0xFF;
+    data[3] = currentPage & 0xFF;
+    data[4] = (currentPage >> 8) & 0xFF;
+    data[5] = pageCount & 0xFF;
+    data[6] = (pageCount >> 8) & 0xFF;
+    data[7] = bookFinished ? 1 : 0;
+    f.write(data, 8);
     f.close();
-    LOG_DBG("ERS", "Progress saved: Chapter %d, Page %d", spineIndex, currentPage);
+    LOG_DBG("ERS", "Progress saved: Chapter %d, Page %d, Finished=%d", spineIndex, currentPage,
+            static_cast<int>(bookFinished));
   } else {
     LOG_ERR("ERS", "Could not save progress!");
   }
+}
+
+void EpubReaderActivity::setFinished(bool finished) {
+  if (bookFinished == finished) {
+    return;
+  }
+  bookFinished = finished;
+  // Save progress with current position; use 0 for page/pageCount if section is not loaded
+  const int currentPage = section ? section->currentPage : 0;
+  const int pageCount = section ? section->pageCount : 0;
+  saveProgress(currentSpineIndex, currentPage, pageCount);
+  RECENT_BOOKS.setFinished(epub->getPath(), bookFinished);
+  LOG_DBG("ERS", "Book marked as %s", bookFinished ? "finished" : "unfinished");
 }
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,

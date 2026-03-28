@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "../util/ConfirmationActivity.h"
+#include "../reader/ReaderUtils.h"
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -89,13 +90,27 @@ void FileBrowserActivity::loadFiles() {
     }
 
     if (file.isDirectory()) {
-      files.emplace_back(std::string(name) + "/");
+      if (!showFinishedOnly) {
+        files.emplace_back(std::string(name) + "/");
+      }
     } else {
       std::string_view filename{name};
       if (FsHelpers::hasEpubExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
           FsHelpers::hasTxtExtension(filename) || FsHelpers::hasMarkdownExtension(filename) ||
           FsHelpers::hasBmpExtension(filename)) {
-        files.emplace_back(filename);
+        // When filter is active, only include EPUB files marked as finished
+        if (showFinishedOnly) {
+          if (FsHelpers::hasEpubExtension(filename)) {
+            std::string cleanBasePath = basepath;
+            if (!cleanBasePath.empty() && cleanBasePath.back() != '/') cleanBasePath += "/";
+            const std::string fullPath = cleanBasePath + std::string(filename);
+            if (ReaderUtils::loadFinishedFromCache(fullPath, "/.crosspoint")) {
+              files.emplace_back(filename);
+            }
+          }
+        } else {
+          files.emplace_back(filename);
+        }
       }
     }
     file.close();
@@ -214,6 +229,15 @@ void FileBrowserActivity::loop() {
     }
   }
 
+  // Left button: toggle "Finished Only" filter
+  if (mappedInput.wasReleased(MappedInputManager::Button::Left)) {
+    showFinishedOnly = !showFinishedOnly;
+    loadFiles();
+    selectorIndex = 0;
+    requestUpdate();
+    return;
+  }
+
   int listSize = static_cast<int>(files.size());
   buttonNavigator.onNextRelease([this, listSize] {
     selectorIndex = ButtonNavigator::nextIndex(static_cast<int>(selectorIndex), listSize);
@@ -252,7 +276,9 @@ void FileBrowserActivity::render(RenderLock&&) {
   const auto& metrics = UITheme::getInstance().getMetrics();
 
   std::string folderName = (basepath == "/") ? tr(STR_SD_CARD) : basepath.substr(basepath.rfind('/') + 1);
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, folderName.c_str());
+  // Show filter state in header subtitle when filter is active
+  const char* subtitle = showFinishedOnly ? tr(STR_FILTER_FINISHED) : nullptr;
+  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, folderName.c_str(), subtitle);
 
   const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
   const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
@@ -265,10 +291,11 @@ void FileBrowserActivity::render(RenderLock&&) {
         [this](int index) { return UITheme::getFileIcon(files[index]); });
   }
 
-  // Help text
+  // Help text — Left button toggles the finished filter
+  const char* filterLabel = showFinishedOnly ? tr(STR_SHOW) : tr(STR_FILTER_FINISHED);
   const auto labels =
       mappedInput.mapLabels(basepath == "/" ? tr(STR_HOME) : tr(STR_BACK), files.empty() ? "" : tr(STR_OPEN),
-                            files.empty() ? "" : tr(STR_DIR_UP), files.empty() ? "" : tr(STR_DIR_DOWN));
+                            filterLabel, files.empty() ? "" : tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   renderer.displayBuffer();

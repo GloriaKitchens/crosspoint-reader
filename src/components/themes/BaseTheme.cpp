@@ -558,6 +558,17 @@ void BaseTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
     } else {
       renderer.drawCenteredText(UI_10_FONT_ID, continueY, tr(STR_CONTINUE_READING), !bookSelected);
     }
+
+    // Finished badge: draw a small "Done" label in the top-left corner of the book card
+    if (recentBooks[0].finished) {
+      const char* badge = tr(STR_FINISHED_BADGE);
+      constexpr int badgePadding = 4;
+      const int badgeTextWidth = renderer.getTextWidth(UI_10_FONT_ID, badge);
+      const int badgeBoxWidth = badgeTextWidth + badgePadding * 2;
+      const int badgeBoxHeight = renderer.getLineHeight(UI_10_FONT_ID) + badgePadding;
+      renderer.fillRect(bookX + 4, bookY + 4, badgeBoxWidth, badgeBoxHeight, true);
+      renderer.drawText(UI_10_FONT_ID, bookX + 4 + badgePadding, bookY + 4, badge, false);
+    }
   } else {
     // No book to continue reading
     const int y =

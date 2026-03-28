@@ -1,7 +1,9 @@
 #pragma once
 
 #include <CrossPointSettings.h>
+#include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalStorage.h>
 #include <Logging.h>
 
 #include "MappedInputManager.h"
@@ -9,6 +11,35 @@
 namespace ReaderUtils {
 
 constexpr unsigned long GO_HOME_MS = 1000;
+
+// Version byte used in the new progress.bin format.
+// Layout: [version(1B), spineIndex(2B), page(2B), pageCount(2B), finished(1B)] = 8 bytes
+constexpr uint8_t PROGRESS_BIN_VERSION = 1;
+
+// Compute the cache directory path for an EPUB file.
+// Mirrors the logic in Epub.h: cacheDir + "/epub_" + hash(filePath)
+inline std::string epubCachePath(const std::string& filePath, const std::string& cacheDir) {
+  return cacheDir + "/epub_" + std::to_string(std::hash<std::string>{}(filePath));
+}
+
+// Read the 'finished' flag from an EPUB's progress.bin without loading the full Epub object.
+// Returns false if the file does not exist, cannot be read, is in the old (unversioned) format
+// (which lacks a finished flag and is treated as not-finished), or if the finished flag is 0.
+inline bool loadFinishedFromCache(const std::string& epubPath, const std::string& cacheDir) {
+  const std::string progressPath = epubCachePath(epubPath, cacheDir) + "/progress.bin";
+  FsFile f;
+  if (!Storage.openFileForRead("READER", progressPath.c_str(), f)) {
+    return false;
+  }
+  uint8_t data[8];
+  const int dataSize = f.read(data, 8);
+  f.close();
+  // New versioned format: version byte == PROGRESS_BIN_VERSION, total size == 8
+  if (dataSize == 8 && data[0] == PROGRESS_BIN_VERSION) {
+    return data[7] != 0;
+  }
+  return false;
+}
 
 inline void applyOrientation(GfxRenderer& renderer, const uint8_t orientation) {
   switch (orientation) {

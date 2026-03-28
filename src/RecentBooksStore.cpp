@@ -53,6 +53,19 @@ void RecentBooksStore::updateBook(const std::string& path, const std::string& ti
   }
 }
 
+void RecentBooksStore::setFinished(const std::string& path, bool finished) {
+  auto it =
+      std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
+  if (it != recentBooks.end()) {
+    if (it->finished == finished) {
+      LOG_DBG("RBS", "Book already marked as %s, skipping write", finished ? "finished" : "unfinished");
+      return;
+    }
+    it->finished = finished;
+    saveToFile();
+  }
+}
+
 bool RecentBooksStore::saveToFile() const {
   Storage.mkdir("/.crosspoint");
   return JsonSettingsIO::saveRecentBooks(*this, RECENT_BOOKS_FILE_JSON);
