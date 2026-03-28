@@ -219,3 +219,29 @@ if (parsedSize != fileSize) {
     std::warning(std::format("Unparsed data detected: {} bytes remaining at offset 0x{:X}", fileSize - parsedSize, parsedSize));
 }
 ```
+
+## `progress.bin`
+
+Stores per-book reading progress inside each book's cache directory (`.crosspoint/epub_<hash>/progress.bin`).
+
+### Version 1 (current)
+
+8-byte layout:
+
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0 | 1 B | `version` | Format version byte — must equal `1` (`PROGRESS_BIN_VERSION`) |
+| 1–2 | 2 B | `spineIndex` | Current spine item index (little-endian) |
+| 3–4 | 2 B | `page` | Current page within the spine item (little-endian) |
+| 5–6 | 2 B | `pageCount` | Total pages in the current spine item (little-endian) |
+| 7 | 1 B | `finished` | `1` if the book has been marked as finished, `0` otherwise |
+
+### Legacy formats (read-only)
+
+Files with 4 or 6 bytes and no version byte are treated as the unversioned legacy format.
+These are read as `finished = false` and will be upgraded to version 1 on the next save.
+
+| Size | Fields |
+|------|--------|
+| 4 B | `spineIndex` (2 B, LE) · `page` (2 B, LE) |
+| 6 B | `spineIndex` (2 B, LE) · `page` (2 B, LE) · `pageCount` (2 B, LE) |
