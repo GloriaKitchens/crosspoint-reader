@@ -276,22 +276,96 @@
     .upload-form {
       margin-bottom: 10px;
     }
-    .upload-form input[type="file"] {
-      margin: 10px 0;
-      width: 100%;
-    }
-    .upload-form input[type="file"]::file-selector-button {
-      background-color: #27ae60;
-      color: white;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 4px;
+    /* Drop zone for multi-file upload */
+    .drop-zone {
+      border: 2px dashed var(--accent-color);
+      border-radius: 8px;
+      padding: 20px 16px;
+      text-align: center;
       cursor: pointer;
-      font-size: 0.9em;
-      margin-right: 8px;
+      transition: background-color 0.2s, border-color 0.2s;
+      margin: 10px 0 8px;
+      position: relative;
     }
-    .upload-form input[type="file"].has-files::file-selector-button {
-      background-color: #95a5a6;
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      background-color: var(--accent-color-10);
+      border-color: var(--accent-hover-color);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .drop-zone-label {
+      pointer-events: none;
+      color: var(--label-color);
+      font-size: 0.95em;
+    }
+    .drop-zone-icon {
+      font-size: 1.8em;
+      margin-bottom: 4px;
+    }
+    /* File queue list */
+    .file-queue {
+      margin: 0 0 10px;
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      display: none;
+    }
+    .file-queue-item {
+      display: flex;
+      align-items: center;
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.88em;
+      gap: 8px;
+    }
+    .file-queue-item:last-child {
+      border-bottom: none;
+    }
+    .file-queue-item .fq-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-queue-item .fq-size {
+      color: var(--label-color);
+      font-size: 0.85em;
+      white-space: nowrap;
+    }
+    .file-queue-item .fq-status {
+      font-size: 1em;
+      min-width: 20px;
+      text-align: center;
+    }
+    .file-queue-item .fq-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--label-color);
+      font-size: 1.1em;
+      padding: 0 2px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .file-queue-item .fq-remove:hover {
+      color: #e74c3c;
+    }
+    .file-queue-item.fq-uploading {
+      background-color: var(--accent-color-10);
+    }
+    .file-queue-item.fq-done {
+      opacity: 0.65;
+    }
+    .file-queue-item.fq-failed {
+      background-color: rgba(231, 76, 60, 0.08);
     }
     .upload-btn {
       background-color: #27ae60;
@@ -1515,10 +1589,18 @@
 <div class="modal-overlay" id="uploadModal">
   <div class="modal">
     <button class="modal-close" id="uploadModalClose" onclick="closeUploadModal()">&times;</button>
-    <h3>📤 Upload file</h3>
+    <h3>📤 Upload files</h3>
     <div class="upload-form">
-      <p class="file-info">Select a file to upload to <strong id="uploadPathDisplay"></strong></p>
-      <input type="file" id="fileInput" onchange="validateFile()" multiple>
+      <p class="file-info">Upload to <strong id="uploadPathDisplay"></strong></p>
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-label">
+          <div class="drop-zone-icon">📂</div>
+          <div>Drop files here or <strong>click to browse</strong></div>
+          <div style="font-size:0.85em; margin-top:3px; opacity:0.8;">Multiple files supported</div>
+        </div>
+        <input type="file" id="fileInput" onchange="onFileInputChange()" multiple>
+      </div>
+      <div class="file-queue" id="fileQueue"></div>
       <div class="picker-columns" id="pickerColumns">
         <div class="convert-options" id="convertOptions" style="display:none;">
           <div class="convert-row">
@@ -1838,6 +1920,30 @@
       });
     });
 
+    // Set up drag-and-drop on the upload drop zone
+    const dropZone = document.getElementById('dropZone');
+    if (dropZone) {
+      dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('drag-over');
+      });
+      dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('drag-over');
+      });
+      dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('drag-over');
+        const dropped = Array.from(e.dataTransfer.files);
+        if (dropped.length > 0) {
+          addFilesToQueue(dropped);
+        }
+      });
+    }
+
     const breadcrumbs = document.getElementById('directory-breadcrumbs');
     const fileTable = document.getElementById('file-table');
 
@@ -1946,6 +2052,11 @@
     OVERLAP_PERCENT = 5;
     imageStates = {};
 
+    // Clear file queue
+    fileQueue = [];
+    fileQueueStatus = [];
+    renderFileQueue();
+
     // Hide convert options when opening modal (no files selected initially)
     const convertOptions = document.getElementById('convertOptions');
     if (convertOptions) {
@@ -2002,7 +2113,10 @@
     document.getElementById('uploadModal').classList.remove('open');
     const fileInput = document.getElementById('fileInput');
     fileInput.value = '';
-    fileInput.classList.remove('has-files');
+    // Clear the file queue
+    fileQueue = [];
+    fileQueueStatus = [];
+    renderFileQueue();
     const uploadBtn = document.getElementById('uploadBtn');
     uploadBtn.disabled = true;
     uploadBtn.style.display = 'block';
@@ -2095,8 +2209,7 @@
     
     // When expanding, show image picker if an EPUB is selected
     if (isExpanding) {
-      const fileInput = document.getElementById('fileInput');
-      const files = fileInput.files;
+      const files = fileQueue;
       if (files.length === 1 && files[0].name.toLowerCase().endsWith('.epub')) {
         showImagePicker(files[0]).catch(err => console.error('Image picker error:', err));
       }
@@ -2903,27 +3016,10 @@
   }
 
   // Set up file input click listener once
-  (function setupFileInputListener() {
-    const fileInput = document.getElementById('fileInput');
-    if (!fileInput) return;
-    
-    fileInput.addEventListener('click', function() {
-      // Small delay to allow browser to process click before checking files
-      setTimeout(() => {
-        if (fileInput.files.length === 0) {
-          clearImagePicker();
-          document.getElementById('uploadBtn').disabled = true;
-        }
-      }, 10);
-    });
-  })();
-
   function validateFile() {
-    const fileInput = document.getElementById('fileInput');
     const uploadBtn = document.getElementById('uploadBtn');
-    const files = fileInput.files;
+    const files = fileQueue;
     const convertOptions = document.getElementById('convertOptions');
-    fileInput.classList.toggle('has-files', files.length > 0);
 
     // Show/hide convert options based on file selection
     if (files.length > 0) {
@@ -2942,7 +3038,7 @@
 
       // If multiple files with conversion, inform user about batch mode
       if (files.length > 1 && convertEnabled) {
-        const epubCount = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.epub')).length;
+        const epubCount = files.filter(f => f.name.toLowerCase().endsWith('.epub')).length;
         if (epubCount > 0) {
           console.log(`Batch mode: ${epubCount} EPUB(s) will use auto settings`);
         }
@@ -2957,6 +3053,103 @@
   }
 
 let failedUploadsGlobal = [];
+// Multi-file upload queue
+let fileQueue = [];         // Array of File objects staged for upload
+let fileQueueStatus = [];   // Parallel array: { status: ''|'uploading'|'done'|'failed', error: '' }
+
+// Update a single file's queue status (keeps arrays in sync)
+function setFileQueueStatus(file, status, error) {
+  const qi = fileQueue.indexOf(file);
+  if (qi !== -1) {
+    fileQueueStatus[qi] = { status: status, error: error || '' };
+    renderFileQueue();
+  }
+}
+
+// Add files to the queue (deduplicates by name + size + lastModified)
+function addFilesToQueue(newFiles) {
+  for (const f of newFiles) {
+    // Skip directories (size 0 with no type is a common directory indicator)
+    if (f.size === 0 && f.type === '') continue;
+    if (!fileQueue.some(q => q.name === f.name && q.size === f.size && q.lastModified === f.lastModified)) {
+      fileQueue.push(f);
+      fileQueueStatus.push({ status: '', error: '' });
+    }
+  }
+  renderFileQueue();
+  validateFile();
+}
+
+// Remove a file from the queue by index
+function removeFromQueue(index) {
+  fileQueue.splice(index, 1);
+  fileQueueStatus.splice(index, 1);
+  renderFileQueue();
+  validateFile();
+}
+
+// Render the file queue list
+function renderFileQueue() {
+  const container = document.getElementById('fileQueue');
+  if (!container) return;
+  if (fileQueue.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = 'block';
+  container.innerHTML = '';
+  fileQueue.forEach((file, i) => {
+    const st = fileQueueStatus[i] || { status: '', error: '' };
+    const item = document.createElement('div');
+    item.className = 'file-queue-item' + (st.status ? ' fq-' + st.status : '');
+
+    // Status icon
+    const statusEl = document.createElement('span');
+    statusEl.className = 'fq-status';
+    statusEl.textContent = st.status === 'done' ? '✅' :
+                           st.status === 'failed' ? '❌' :
+                           st.status === 'uploading' ? '⏳' : '📄';
+    if (st.error) statusEl.title = st.error;
+    item.appendChild(statusEl);
+
+    // File name
+    const nameEl = document.createElement('span');
+    nameEl.className = 'fq-name';
+    nameEl.title = file.name;
+    nameEl.textContent = file.name;
+    item.appendChild(nameEl);
+
+    // File size
+    const sizeEl = document.createElement('span');
+    sizeEl.className = 'fq-size';
+    sizeEl.textContent = formatFileSize(file.size);
+    item.appendChild(sizeEl);
+
+    // Remove button (only for files not currently uploading or done)
+    if (st.status !== 'uploading' && st.status !== 'done') {
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'fq-remove';
+      removeBtn.title = 'Remove from queue';
+      removeBtn.textContent = '✕';
+      removeBtn.onclick = () => removeFromQueue(i);
+      item.appendChild(removeBtn);
+    }
+
+    container.appendChild(item);
+  });
+}
+
+// Called when the file input value changes (browse dialog)
+function onFileInputChange() {
+  const fileInput = document.getElementById('fileInput');
+  addFilesToQueue(Array.from(fileInput.files));
+  // Reset the input value so the browser 'change' event fires again if the user
+  // selects the same file after removing it from the queue (browsers suppress 'change'
+  // when the selected path hasn't changed).
+  fileInput.value = '';
+}
+
 let wsConnection = null;
 let isUploadInProgress = false; // Prevent modal close during upload/conversion
 let operationCancelled = false; // Set by Cancel to stop conversion loops and upload async handlers
@@ -4672,8 +4865,7 @@ function uploadFileHTTP(file, onProgress, onComplete, onError) {
 }
 
 function uploadFile() {
-  const fileInput = document.getElementById('fileInput');
-  const files = Array.from(fileInput.files);
+  const files = [...fileQueue];
   const convertEnabled = document.getElementById('convertBeforeUpload').checked;
 
   if (files.length === 0) {
@@ -4757,6 +4949,8 @@ function uploadFile() {
 
     let file = files[currentIndex];
     const originalFile = file;
+    // Mark this file as uploading in the queue display
+    setFileQueueStatus(originalFile, 'uploading', '');
     // Reset progress bar instantly without transition when starting a new file
     progressFill.classList.add('no-transition');
     progressFill.style.width = '0%';
@@ -4785,6 +4979,8 @@ function uploadFile() {
     };
 
     const onComplete = () => {
+      // Mark file as done in queue
+      setFileQueueStatus(originalFile, 'done', '');
       // Save file log to batch if in batch mode and this file was converted
       // Consider it successful only if conversion didn't fail
       if (useBatchLog && needsConversion) {
@@ -4796,6 +4992,8 @@ function uploadFile() {
     };
 
     const onError = (error) => {
+      // Mark file as failed in queue
+      setFileQueueStatus(originalFile, 'failed', error);
       // Save failed file log to batch if in batch mode
       if (useBatchLog && needsConversion) {
         logError(`Upload failed: ${error}`);
@@ -4950,13 +5148,6 @@ function retrySingleUpload(index) {
   const failedFile = failedUploadsGlobal[index];
   if (!failedFile) return;
 
-  // Create a DataTransfer to set the file input
-  const dt = new DataTransfer();
-  dt.items.add(failedFile.file);
-
-  const fileInput = document.getElementById('fileInput');
-  fileInput.files = dt.files;
-
   // Remove this file from failed list
   failedUploadsGlobal.splice(index, 1);
 
@@ -4965,29 +5156,28 @@ function retrySingleUpload(index) {
     dismissFailedUploads();
   }
 
-  // Open modal and trigger upload
+  // Open modal, populate queue with this file, and trigger upload
   openUploadModal();
+  fileQueue = [failedFile.file];
+  fileQueueStatus = [{ status: '', error: '' }];
+  renderFileQueue();
   validateFile();
 }
 
 function retryAllFailedUploads() {
   if (failedUploadsGlobal.length === 0) return;
 
-  // Create a DataTransfer with all failed files
-  const dt = new DataTransfer();
-  failedUploadsGlobal.forEach(failedFile => {
-    dt.items.add(failedFile.file);
-  });
-
-  const fileInput = document.getElementById('fileInput');
-  fileInput.files = dt.files;
+  const filesToRetry = failedUploadsGlobal.map(f => f.file);
 
   // Clear failed files list
   failedUploadsGlobal = [];
   dismissFailedUploads();
 
-  // Open modal and trigger upload
+  // Open modal, populate queue with all failed files, and trigger upload
   openUploadModal();
+  fileQueue = filesToRetry;
+  fileQueueStatus = filesToRetry.map(() => ({ status: '', error: '' }));
+  renderFileQueue();
   validateFile();
 }
 
