@@ -153,8 +153,9 @@ void ReadingCalendarActivity::render(RenderLock&&) {
   const int dayHeaderY = headerBottom + 4;
   for (int d = 0; d < 7; d++) {
     const int x = d * cellW + cellW / 2;
-    const int w = renderer.getTextWidth(UI_10_FONT_ID, DAY_HEADERS[d]);
-    renderer.drawText(UI_10_FONT_ID, x - w / 2, dayHeaderY, DAY_HEADERS[d], true);
+    const char* const hdr = dayHeader(d);
+    const int w = renderer.getTextWidth(UI_10_FONT_ID, hdr);
+    renderer.drawText(UI_10_FONT_ID, x - w / 2, dayHeaderY, hdr, true);
   }
 
   // Separator line under day headers
@@ -235,7 +236,7 @@ void ReadingCalendarActivity::render(RenderLock&&) {
   // ---- Button hints ----
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", "", "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
-  GUI.drawSideButtonHints(renderer, "< Prev", "Next >");
+  GUI.drawSideButtonHints(renderer, tr(STR_PREV_MONTH), tr(STR_NEXT_MONTH));
 
   renderer.displayBuffer();
 }
