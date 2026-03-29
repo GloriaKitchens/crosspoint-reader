@@ -36,8 +36,10 @@ bool BookmarkStore::load(const char* cachePath) {
   for (int i = 0; i < storedCount; i++) {
     uint8_t entry[4];
     if (f.read(entry, 4) != 4) {
-      LOG_ERR(MODULE, "Short read at bookmark %d", i);
-      break;
+      LOG_ERR(MODULE, "Short read at bookmark %d, treating file as corrupt", i);
+      bookmarkCount = 0;
+      f.close();
+      return false;
     }
     bookmarks[bookmarkCount].spineIndex = static_cast<uint16_t>(entry[0] | (entry[1] << 8));
     bookmarks[bookmarkCount].page = static_cast<uint16_t>(entry[2] | (entry[3] << 8));

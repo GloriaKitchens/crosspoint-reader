@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include <cstdint>
 
 // Maximum number of bookmarks stored per book.
@@ -36,7 +37,10 @@ class BookmarkStore {
 
   int count() const { return bookmarkCount; }
 
-  const Bookmark& get(int index) const { return bookmarks[index]; }
+  const Bookmark& get(int index) const {
+    assert(index >= 0 && index < bookmarkCount);
+    return bookmarks[index];
+  }
 
  private:
   Bookmark bookmarks[BOOKMARK_MAX_COUNT] = {};

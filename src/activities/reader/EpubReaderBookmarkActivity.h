@@ -22,7 +22,7 @@ class EpubReaderBookmarkActivity final : public Activity {
   void render(RenderLock&&) override;
 
  private:
-  const std::shared_ptr<Epub>& epub;
+  std::shared_ptr<Epub> epub;
   const BookmarkStore& store;
   int selectedIndex = 0;
   ButtonNavigator buttonNavigator;
