@@ -11,6 +11,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "KOReaderCredentialStore.h"
+#include "ReadingCalendarStore.h"
 #include "RecentBooksStore.h"
 #include "SettingsList.h"
 #include "WifiCredentialStore.h"
@@ -332,5 +333,44 @@ bool JsonSettingsIO::loadRecentBooks(RecentBooksStore& store, const char* json) 
   }
 
   LOG_DBG("RBS", "Recent books loaded from file (%d entries)", store.getCount());
+  return true;
+}
+
+// ---- ReadingCalendarStore ----
+
+bool JsonSettingsIO::saveCalendar(const ReadingCalendarStore& store, const char* path) {
+  JsonDocument doc;
+  JsonArray arr = doc["days"].to<JsonArray>();
+  for (const auto& rec : store.getRecords()) {
+    JsonObject obj = arr.add<JsonObject>();
+    obj["date"] = rec.date;
+    obj["pages"] = rec.pagesRead;
+  }
+
+  String json;
+  serializeJson(doc, json);
+  return Storage.writeFile(path, json);
+}
+
+bool JsonSettingsIO::loadCalendar(ReadingCalendarStore& store, const char* json) {
+  JsonDocument doc;
+  auto error = deserializeJson(doc, json);
+  if (error) {
+    LOG_ERR("RCS", "JSON parse error: %s", error.c_str());
+    return false;
+  }
+
+  store.records.clear();
+  JsonArray arr = doc["days"].as<JsonArray>();
+  for (JsonObject obj : arr) {
+    DayRecord rec;
+    rec.date = obj["date"] | (uint32_t)0;
+    rec.pagesRead = obj["pages"] | (uint16_t)0;
+    if (rec.date > 0) {
+      store.records.push_back(rec);
+    }
+  }
+
+  LOG_DBG("RCS", "Reading calendar loaded from file (%d entries)", static_cast<int>(store.records.size()));
   return true;
 }

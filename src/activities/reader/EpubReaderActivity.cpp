@@ -20,6 +20,7 @@
 #include "KOReaderSyncActivity.h"
 #include "MappedInputManager.h"
 #include "QrDisplayActivity.h"
+#include "ReadingCalendarStore.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
@@ -111,6 +112,7 @@ void EpubReaderActivity::onExit() {
 
   APP_STATE.readerActivityLoadCount = 0;
   APP_STATE.saveToFile();
+  READING_CALENDAR.saveToFile();
   section.reset();
   epub.reset();
 }
@@ -501,6 +503,7 @@ void EpubReaderActivity::toggleAutoPageTurn(const uint8_t selectedPageTurnOption
 
 void EpubReaderActivity::pageTurn(bool isForwardTurn) {
   if (isForwardTurn) {
+    READING_CALENDAR.recordPageRead();
     if (section->currentPage < section->pageCount - 1) {
       section->currentPage++;
     } else {

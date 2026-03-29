@@ -10,6 +10,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
+#include "ReadingCalendarStore.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
@@ -54,6 +55,7 @@ void TxtReaderActivity::onExit() {
   currentPageLines.clear();
   APP_STATE.readerActivityLoadCount = 0;
   APP_STATE.saveToFile();
+  READING_CALENDAR.saveToFile();
   txt.reset();
 }
 
@@ -80,6 +82,7 @@ void TxtReaderActivity::loop() {
     currentPage--;
     requestUpdate();
   } else if (nextTriggered && currentPage < totalPages - 1) {
+    READING_CALENDAR.recordPageRead();
     currentPage++;
     requestUpdate();
   }
