@@ -93,6 +93,34 @@ Contributions are welcome! If you want to work on one of these features, please 
 
 ---
 
+## 6. Reading Calendar
+
+**Summary:** Track how many pages are read each day and display them in a monthly calendar where cells are shaded proportionally — darker cells on days when more pages were read, lighter cells on days when fewer pages were read.
+
+**Intended behaviour:**
+- Each forward page turn in the EPUB, TXT, and XTC readers increments a counter for the current calendar day.
+- A new **Reading Calendar** entry appears in the home screen menu (between Recent Books and File Transfer).
+- The calendar activity shows a month grid (7 columns × up to 6 rows).
+  - Days with zero reading are shown as empty white cells.
+  - Days with minimal reading are shown with a light-gray fill.
+  - Days with moderate reading are shown with a dark-gray fill.
+  - Days with the most reading (the daily maximum for the displayed month) are shown in black.
+  - The current day is indicated by a double border.
+  - Non-zero page counts are printed inside each cell.
+- The PageBack and PageForward side buttons navigate to the previous or next month.
+- The Back button returns to the home screen.
+- Reading history persists across power cycles via `/.crosspoint/reading_calendar.json`.
+
+**Design notes:**
+- Shade levels are determined by dividing the day's page count by the maximum for the displayed month, then mapping to four discrete levels: white (0), LightGray (<34 %), DarkGray (<67 %), Black (≥67 %). Using the monthly maximum as the denominator rather than a fixed reference prevents well-read months from looking uniformly dark.
+- The data store (`ReadingCalendarStore`, see `src/ReadingCalendarStore.h`) holds at most 365 records, trimming the oldest entry whenever the limit is exceeded. Each record is 6 bytes (uint32_t YYYYMMDD date + uint16_t page count), keeping peak RAM usage well under 3 KB.
+- Page counts are only incremented on **forward** page turns to avoid inflating the count when the user re-reads passages.
+- The store is saved to disk on reader exit (`onExit()`), not on every page turn, to respect SD card write-cycle limits (see SPIFFS Write Throttling in the coding standards).
+- `time()` / `localtime_r()` are used to determine today's date. If the device clock is not set (i.e. `time()` returns a value before 2020-01-01), page turns are silently skipped so epoch-era records do not pollute the calendar.
+- The calendar layout is fully orientation-aware: cell sizes are derived from `renderer.getScreenWidth()` and `renderer.getScreenHeight()`, not hardcoded pixel values.
+
+---
+
 ## Contributing to These Features
 
 1. Read [SCOPE.md](SCOPE.md) to confirm your feature aligns with the project mission.

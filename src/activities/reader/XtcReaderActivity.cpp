@@ -15,6 +15,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
+#include "ReadingCalendarStore.h"
 #include "RecentBooksStore.h"
 #include "XtcReaderChapterSelectionActivity.h"
 #include "components/UITheme.h"
@@ -51,6 +52,7 @@ void XtcReaderActivity::onExit() {
 
   APP_STATE.readerActivityLoadCount = 0;
   APP_STATE.saveToFile();
+  READING_CALENDAR.saveToFile();
   xtc.reset();
 }
 
@@ -116,6 +118,7 @@ void XtcReaderActivity::loop() {
     }
     requestUpdate();
   } else if (nextTriggered) {
+    READING_CALENDAR.recordPageRead();
     currentPage += skipAmount;
     if (currentPage >= xtc->getPageCount()) {
       currentPage = xtc->getPageCount();  // Allow showing "End of book"

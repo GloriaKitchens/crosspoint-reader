@@ -20,7 +20,7 @@
 #include "fontIds.h"
 
 int HomeActivity::getMenuItemCount() const {
-  int count = 4;  // File Browser, Recents, File transfer, Settings
+  int count = 5;  // File Browser, Recents, Calendar, File transfer, Settings
   if (!recentBooks.empty()) {
     count += recentBooks.size();
   }
@@ -190,6 +190,7 @@ void HomeActivity::loop() {
     int menuSelectedIndex = selectorIndex - static_cast<int>(recentBooks.size());
     const int fileBrowserIdx = idx++;
     const int recentsIdx = idx++;
+    const int calendarIdx = idx++;
     const int opdsLibraryIdx = hasOpdsUrl ? idx++ : -1;
     const int fileTransferIdx = idx++;
     const int settingsIdx = idx;
@@ -200,6 +201,8 @@ void HomeActivity::loop() {
       onFileBrowserOpen();
     } else if (menuSelectedIndex == recentsIdx) {
       onRecentsOpen();
+    } else if (menuSelectedIndex == calendarIdx) {
+      onCalendarOpen();
     } else if (menuSelectedIndex == opdsLibraryIdx) {
       onOpdsBrowserOpen();
     } else if (menuSelectedIndex == fileTransferIdx) {
@@ -225,14 +228,14 @@ void HomeActivity::render(RenderLock&&) {
                           std::bind(&HomeActivity::storeCoverBuffer, this));
 
   // Build menu items dynamically
-  std::vector<const char*> menuItems = {tr(STR_BROWSE_FILES), tr(STR_MENU_RECENT_BOOKS), tr(STR_FILE_TRANSFER),
-                                        tr(STR_SETTINGS_TITLE)};
-  std::vector<UIIcon> menuIcons = {Folder, Recent, Transfer, Settings};
+  std::vector<const char*> menuItems = {tr(STR_BROWSE_FILES), tr(STR_MENU_RECENT_BOOKS), tr(STR_READING_CALENDAR),
+                                        tr(STR_FILE_TRANSFER), tr(STR_SETTINGS_TITLE)};
+  std::vector<UIIcon> menuIcons = {Folder, Recent, Recent, Transfer, Settings};
 
   if (hasOpdsUrl) {
-    // Insert OPDS Browser after File Browser
-    menuItems.insert(menuItems.begin() + 2, tr(STR_OPDS_BROWSER));
-    menuIcons.insert(menuIcons.begin() + 2, Library);
+    // Insert OPDS Browser after Recent Books
+    menuItems.insert(menuItems.begin() + 3, tr(STR_OPDS_BROWSER));
+    menuIcons.insert(menuIcons.begin() + 3, Library);
   }
 
   GUI.drawButtonMenu(
@@ -269,3 +272,5 @@ void HomeActivity::onSettingsOpen() { activityManager.goToSettings(); }
 void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
 
 void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }
+
+void HomeActivity::onCalendarOpen() { activityManager.goToReadingCalendar(); }
