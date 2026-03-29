@@ -16,11 +16,19 @@ HalStorage::HalStorage() {
   assert(storageMutex != nullptr);
 }
 
-// begin() and ready() are only called from setup, no need to acquire mutex for them
+// begin()/end() are protected by the storage mutex to prevent races with other
+// filesystem operations that may be in-flight when called at runtime (e.g. from UsbStorageActivity).
+// ready() is read-only and called only from setup; no lock required.
 
-bool HalStorage::begin() { return SDCard.begin(); }
+bool HalStorage::begin() {
+  StorageLock lock;
+  return SDCard.begin();
+}
 
-void HalStorage::end() { SDCard.end(); }
+void HalStorage::end() {
+  StorageLock lock;
+  SDCard.end();
+}
 
 bool HalStorage::ready() const { return SDCard.ready(); }
 

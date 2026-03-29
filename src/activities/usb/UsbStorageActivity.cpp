@@ -7,6 +7,7 @@
 #include <Logging.h>
 #include <USB.h>
 
+#include "CrossPointState.h"
 #include "MappedInputManager.h"
 #include "activities/ActivityManager.h"
 #include "components/UITheme.h"
@@ -19,6 +20,10 @@
 // ---------------------------------------------------------------------------
 
 static int32_t usbMscOnRead(uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize) {
+  if (offset % 512 != 0) {
+    LOG_ERR("USB_MSC", "Read: offset %u is not 512-aligned", offset);
+    return -1;
+  }
   if (bufsize % 512 != 0) {
     LOG_ERR("USB_MSC", "Read: bufsize %u is not a multiple of 512", bufsize);
     return -1;
@@ -29,11 +34,14 @@ static int32_t usbMscOnRead(uint32_t lba, uint32_t offset, void* buffer, uint32_
     LOG_ERR("USB_MSC", "Read failed: lba=%u count=%u", startLba, count);
     return -1;
   }
-  LOG_DBG("USB_MSC", "Read: lba=%u count=%u", startLba, count);
   return static_cast<int32_t>(bufsize);
 }
 
 static int32_t usbMscOnWrite(uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize) {
+  if (offset % 512 != 0) {
+    LOG_ERR("USB_MSC", "Write: offset %u is not 512-aligned", offset);
+    return -1;
+  }
   if (bufsize % 512 != 0) {
     LOG_ERR("USB_MSC", "Write: bufsize %u is not a multiple of 512", bufsize);
     return -1;
@@ -44,7 +52,6 @@ static int32_t usbMscOnWrite(uint32_t lba, uint32_t offset, uint8_t* buffer, uin
     LOG_ERR("USB_MSC", "Write failed: lba=%u count=%u", startLba, count);
     return -1;
   }
-  LOG_DBG("USB_MSC", "Write: lba=%u count=%u", startLba, count);
   return static_cast<int32_t>(bufsize);
 }
 
@@ -54,6 +61,9 @@ void UsbStorageActivity::onEnter() {
   Activity::onEnter();
 
   LOG_INF("USB_MSC", "Entering USB storage mode");
+
+  // Flush app state before unmounting so nothing is lost if the card is modified by the host.
+  APP_STATE.saveToFile();
 
   // Get sector count BEFORE unmounting so the filesystem geometry is known.
   const uint32_t sectors = Storage.sectorCount();
