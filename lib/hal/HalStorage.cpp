@@ -20,6 +20,8 @@ HalStorage::HalStorage() {
 
 bool HalStorage::begin() { return SDCard.begin(); }
 
+void HalStorage::end() { SDCard.end(); }
+
 bool HalStorage::ready() const { return SDCard.ready(); }
 
 // For the rest of the methods, we acquire the mutex to ensure thread safety
@@ -119,6 +121,38 @@ bool HalStorage::openFileForWrite(const char* moduleName, const String& path, Ha
 }
 
 bool HalStorage::removeDir(const char* path) { HAL_STORAGE_WRAPPED_CALL(removeDir, path); }
+
+uint32_t HalStorage::sectorCount() {
+  auto* card = SDCard.card();
+  if (!card) {
+    LOG_ERR("STORAGE", "sectorCount: SD card object is null");
+    return 0;
+  }
+  return card->sectorCount();
+}
+
+// Note: readBlocks/writeBlocks intentionally do NOT acquire storageMutex.
+// They are only called from the USB MSC context, which requires that the
+// SdFat filesystem has already been unmounted via end().  After end(),
+// no other firmware code should be issuing filesystem calls, so concurrent
+// access via the mutex is not a concern.
+bool HalStorage::readBlocks(uint32_t lba, uint8_t* buf, uint32_t count) {
+  auto* card = SDCard.card();
+  if (!card) {
+    LOG_ERR("STORAGE", "readBlocks: SD card object is null");
+    return false;
+  }
+  return card->readBlocks(lba, buf, count);
+}
+
+bool HalStorage::writeBlocks(uint32_t lba, const uint8_t* buf, uint32_t count) {
+  auto* card = SDCard.card();
+  if (!card) {
+    LOG_ERR("STORAGE", "writeBlocks: SD card object is null");
+    return false;
+  }
+  return card->writeBlocks(lba, buf, count);
+}
 
 // HalFile implementation
 // Allow doing file operations while ensuring thread safety via HalStorage's mutex.

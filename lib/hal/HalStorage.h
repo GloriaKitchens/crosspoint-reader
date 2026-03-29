@@ -14,6 +14,7 @@ class HalStorage {
  public:
   HalStorage();
   bool begin();
+  void end();
   bool ready() const;
   std::vector<String> listFiles(const char* path = "/", int maxFiles = 200);
   // Read the entire file at `path` into a String. Returns empty string on failure.
@@ -36,6 +37,12 @@ class HalStorage {
   bool remove(const char* path);
   bool rename(const char* oldPath, const char* newPath);
   bool rmdir(const char* path);
+
+  // Raw block-level access (for USB MSC).
+  // Must only be called after end() has been used to unmount the filesystem.
+  uint32_t sectorCount();
+  bool readBlocks(uint32_t lba, uint8_t* buf, uint32_t count);
+  bool writeBlocks(uint32_t lba, const uint8_t* buf, uint32_t count);
 
   bool openFileForRead(const char* moduleName, const char* path, HalFile& file);
   bool openFileForRead(const char* moduleName, const std::string& path, HalFile& file);
