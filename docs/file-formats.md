@@ -245,3 +245,20 @@ These are read as `finished = false` and will be upgraded to version 1 on the ne
 |------|--------|
 | 4 B | `spineIndex` (2 B, LE) · `page` (2 B, LE) |
 | 6 B | `spineIndex` (2 B, LE) · `page` (2 B, LE) · `pageCount` (2 B, LE) |
+
+## `bookmarks.bin`
+
+Stores per-book bookmarks inside each book's cache directory (`.crosspoint/epub_<hash>/bookmarks.bin`).
+
+### Version 1 (current)
+
+Variable-length layout: `2 + count × 4` bytes.
+
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0 | 1 B | `version` | Format version byte — must equal `1` (`BOOKMARKS_BIN_VERSION`) |
+| 1 | 1 B | `count` | Number of stored bookmarks (0–16) |
+| 2 + i×4 | 2 B | `bookmarks[i].spineIndex` | Spine item index of the i-th bookmark (little-endian) |
+| 4 + i×4 | 2 B | `bookmarks[i].page` | Page within the spine item (little-endian) |
+
+Maximum `count` is 16 (`BOOKMARK_MAX_COUNT`). The file is written in full on every add/remove operation.

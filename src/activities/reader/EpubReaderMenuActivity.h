@@ -22,12 +22,15 @@ class EpubReaderMenuActivity final : public Activity {
     GO_HOME,
     SYNC,
     DELETE_CACHE,
-    MARK_FINISHED
+    MARK_FINISHED,
+    ADD_REMOVE_BOOKMARK,
+    VIEW_BOOKMARKS
   };
 
   explicit EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& title,
                                   const int currentPage, const int totalPages, const int bookProgressPercent,
-                                  const uint8_t currentOrientation, const bool hasFootnotes, const bool isFinished);
+                                  const uint8_t currentOrientation, const bool hasFootnotes, const bool isFinished,
+                                  const bool isCurrentPageBookmarked);
 
   void onEnter() override;
   void onExit() override;
@@ -58,4 +61,5 @@ class EpubReaderMenuActivity final : public Activity {
   int totalPages = 0;
   int bookProgressPercent = 0;
   bool isFinished = false;
+  bool isCurrentPageBookmarked = false;
 };
