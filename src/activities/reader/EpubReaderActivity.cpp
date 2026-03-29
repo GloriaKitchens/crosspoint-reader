@@ -12,6 +12,7 @@
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "EpubReaderBookmarkActivity.h"
 #include "EpubReaderChapterSelectionActivity.h"
 #include "EpubReaderFootnotesActivity.h"
 #include "EpubReaderPercentSelectionActivity.h"
@@ -55,6 +56,7 @@ void EpubReaderActivity::onEnter() {
   ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
 
   epub->setupCacheDir();
+  bookmarkStore.load(epub->getCachePath().c_str());
 
   FsFile f;
   if (Storage.openFileForRead("ERS", epub->getCachePath() + "/progress.bin", f)) {
@@ -156,9 +158,13 @@ void EpubReaderActivity::loop() {
       bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
     }
     const int bookProgressPercent = clampPercent(static_cast<int>(bookProgress + 0.5f));
+    const bool isCurrentPageBookmarked =
+        section && bookmarkStore.has(static_cast<uint16_t>(currentSpineIndex),
+                                     static_cast<uint16_t>(section->currentPage));
     startActivityForResult(std::make_unique<EpubReaderMenuActivity>(
                                renderer, mappedInput, epub->getTitle(), currentPage, totalPages, bookProgressPercent,
-                               SETTINGS.orientation, !currentPageFootnotes.empty(), bookFinished),
+                               SETTINGS.orientation, !currentPageFootnotes.empty(), bookFinished,
+                               isCurrentPageBookmarked),
                            [this](const ActivityResult& result) {
                              // Always apply orientation change even if the menu was cancelled
                              const auto& menu = std::get<MenuResult>(result.data);
@@ -415,6 +421,27 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     case EpubReaderMenuActivity::MenuAction::MARK_FINISHED: {
       setFinished(!bookFinished);
       requestUpdate();
+      break;
+    }
+    case EpubReaderMenuActivity::MenuAction::ADD_REMOVE_BOOKMARK: {
+      toggleBookmark();
+      requestUpdate();
+      break;
+    }
+    case EpubReaderMenuActivity::MenuAction::VIEW_BOOKMARKS: {
+      startActivityForResult(
+          std::make_unique<EpubReaderBookmarkActivity>(renderer, mappedInput, epub, bookmarkStore),
+          [this](const ActivityResult& result) {
+            if (!result.isCancelled) {
+              const auto& bm = std::get<BookmarkResult>(result.data);
+              RenderLock lock(*this);
+              currentSpineIndex = static_cast<int>(bm.spineIndex);
+              nextPageNumber = static_cast<int>(bm.page);
+              section.reset();
+            } else {
+              requestUpdate();
+            }
+          });
       break;
     }
   }
@@ -729,6 +756,29 @@ void EpubReaderActivity::setFinished(bool finished) {
   saveProgress(currentSpineIndex, currentPage, pageCount);
   RECENT_BOOKS.setFinished(epub->getPath(), bookFinished);
   LOG_DBG("ERS", "Book marked as %s", bookFinished ? "finished" : "unfinished");
+}
+
+void EpubReaderActivity::toggleBookmark() {
+  if (!epub || !section) {
+    return;
+  }
+  // currentSpineIndex and section->currentPage are validated in render() before
+  // any section operations, so they are always non-negative and within valid range.
+  if (currentSpineIndex < 0 || currentSpineIndex > UINT16_MAX || section->currentPage < 0 ||
+      section->currentPage > UINT16_MAX) {
+    LOG_ERR("ERS", "Spine or page index out of uint16_t range, cannot bookmark");
+    return;
+  }
+  const auto spineIdx = static_cast<uint16_t>(currentSpineIndex);
+  const auto pageIdx = static_cast<uint16_t>(section->currentPage);
+  if (bookmarkStore.has(spineIdx, pageIdx)) {
+    bookmarkStore.remove(spineIdx, pageIdx);
+    LOG_DBG("ERS", "Bookmark removed: spine=%d page=%d", spineIdx, pageIdx);
+  } else {
+    bookmarkStore.add(spineIdx, pageIdx);
+    LOG_DBG("ERS", "Bookmark added: spine=%d page=%d", spineIdx, pageIdx);
+  }
+  bookmarkStore.save(epub->getCachePath().c_str());
 }
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,

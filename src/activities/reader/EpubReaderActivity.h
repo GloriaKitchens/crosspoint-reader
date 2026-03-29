@@ -3,6 +3,7 @@
 #include <Epub/FootnoteEntry.h>
 #include <Epub/Section.h>
 
+#include "BookmarkStore.h"
 #include "EpubReaderMenuActivity.h"
 #include "activities/Activity.h"
 
@@ -45,6 +46,7 @@ class EpubReaderActivity final : public Activity {
   void silentIndexNextChapterIfNeeded(uint16_t viewportWidth, uint16_t viewportHeight);
   void saveProgress(int spineIndex, int currentPage, int pageCount);
   void setFinished(bool finished);
+  void toggleBookmark();
   // Jump to a percentage of the book (0-100), mapping it to spine and page.
   void jumpToPercent(int percent);
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
@@ -55,6 +57,8 @@ class EpubReaderActivity final : public Activity {
   // Footnote navigation
   void navigateToHref(const std::string& href, bool savePosition = false);
   void restoreSavedPosition();
+
+  BookmarkStore bookmarkStore;
 
  public:
   explicit EpubReaderActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::unique_ptr<Epub> epub)
