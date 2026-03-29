@@ -38,17 +38,24 @@ int firstDayOfWeek(int year, int month) {
   return t.tm_wday;
 }
 
-// Abbreviated month names
+// Abbreviated month names via i18n
 const char* monthName(int month) {
-  static const char* const all[] = {"",          "January", "February", "March",    "April",
-                                    "May",       "June",    "July",     "August",   "September",
-                                    "October",   "November","December"};
+  static const StrId ids[] = {
+      StrId::STR_MONTH_JANUARY, StrId::STR_MONTH_FEBRUARY, StrId::STR_MONTH_MARCH,
+      StrId::STR_MONTH_APRIL,   StrId::STR_MONTH_MAY,      StrId::STR_MONTH_JUNE,
+      StrId::STR_MONTH_JULY,    StrId::STR_MONTH_AUGUST,   StrId::STR_MONTH_SEPTEMBER,
+      StrId::STR_MONTH_OCTOBER, StrId::STR_MONTH_NOVEMBER, StrId::STR_MONTH_DECEMBER};
   if (month < 1 || month > 12) return "";
-  return all[month];
+  return I18N.get(ids[month - 1]);
 }
 
-// Abbreviated day-of-week headers (Sunday first)
-static const char* const DAY_HEADERS[] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
+// Day-of-week header abbreviations via i18n (Sunday first)
+const char* dayHeader(int dow) {
+  static const StrId ids[] = {StrId::STR_DAY_SUN, StrId::STR_DAY_MON, StrId::STR_DAY_TUE, StrId::STR_DAY_WED,
+                               StrId::STR_DAY_THU, StrId::STR_DAY_FRI, StrId::STR_DAY_SAT};
+  if (dow < 0 || dow > 6) return "";
+  return I18N.get(ids[dow]);
+}
 
 // Map a ratio (0.0-1.0) to a dither Color for fill
 // 0 → white (no fill), low → LightGray, mid → DarkGray, high → Black

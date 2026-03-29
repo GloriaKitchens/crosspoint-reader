@@ -73,6 +73,9 @@ uint16_t ReadingCalendarStore::getMaxPagesForMonth(int year, int month) const {
 }
 
 bool ReadingCalendarStore::saveToFile() const {
+  if (!dirty) {
+    return true;
+  }
   Storage.mkdir("/.crosspoint");
   bool ok = JsonSettingsIO::saveCalendar(*this, "/.crosspoint/reading_calendar.json");
   if (ok) {
