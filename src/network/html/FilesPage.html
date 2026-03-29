@@ -1937,9 +1937,25 @@
         e.preventDefault();
         e.stopPropagation();
         dropZone.classList.remove('drag-over');
-        const dropped = Array.from(e.dataTransfer.files);
-        if (dropped.length > 0) {
-          addFilesToQueue(dropped);
+        if (isUploadInProgress) return; // Queue is frozen during upload
+        const items = e.dataTransfer.items;
+        const files = [];
+        if (items) {
+          // Use webkitGetAsEntry to reliably skip dragged directories
+          for (let i = 0; i < items.length; i++) {
+            const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+            if (entry && entry.isDirectory) continue; // skip directory entries
+            const file = items[i].getAsFile();
+            if (file) files.push(file);
+          }
+        } else {
+          // Fallback: filter by the size+type heuristic (directories, not genuine empty files)
+          Array.from(e.dataTransfer.files).forEach(f => {
+            if (!(f.size === 0 && f.type === '')) files.push(f);
+          });
+        }
+        if (files.length > 0) {
+          addFilesToQueue(files);
         }
       });
     }
@@ -3069,8 +3085,6 @@ function setFileQueueStatus(file, status, error) {
 // Add files to the queue (deduplicates by name + size + lastModified)
 function addFilesToQueue(newFiles) {
   for (const f of newFiles) {
-    // Skip directories (size 0 with no type is a common directory indicator)
-    if (f.size === 0 && f.type === '') continue;
     if (!fileQueue.some(q => q.name === f.name && q.size === f.size && q.lastModified === f.lastModified)) {
       fileQueue.push(f);
       fileQueueStatus.push({ status: '', error: '' });
@@ -3126,8 +3140,8 @@ function renderFileQueue() {
     sizeEl.textContent = formatFileSize(file.size);
     item.appendChild(sizeEl);
 
-    // Remove button (only for files not currently uploading or done)
-    if (st.status !== 'uploading' && st.status !== 'done') {
+    // Remove button: hidden during any active upload (queue is frozen) and for completed files
+    if (!isUploadInProgress && st.status !== 'done') {
       const removeBtn = document.createElement('button');
       removeBtn.className = 'fq-remove';
       removeBtn.title = 'Remove from queue';
@@ -4865,7 +4879,7 @@ function uploadFileHTTP(file, onProgress, onComplete, onError) {
 }
 
 function uploadFile() {
-  const files = [...fileQueue];
+  const files = fileQueue;
   const convertEnabled = document.getElementById('convertBeforeUpload').checked;
 
   if (files.length === 0) {
@@ -5156,7 +5170,7 @@ function retrySingleUpload(index) {
     dismissFailedUploads();
   }
 
-  // Open modal, populate queue with this file, and trigger upload
+  // Open modal, populate queue with this file, and await user action
   openUploadModal();
   fileQueue = [failedFile.file];
   fileQueueStatus = [{ status: '', error: '' }];
@@ -5173,7 +5187,7 @@ function retryAllFailedUploads() {
   failedUploadsGlobal = [];
   dismissFailedUploads();
 
-  // Open modal, populate queue with all failed files, and trigger upload
+  // Open modal, populate queue with all failed files, and await user action
   openUploadModal();
   fileQueue = filesToRetry;
   fileQueueStatus = filesToRetry.map(() => ({ status: '', error: '' }));
