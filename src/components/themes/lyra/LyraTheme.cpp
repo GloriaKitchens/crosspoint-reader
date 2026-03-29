@@ -501,6 +501,19 @@ void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
       titleY += renderer.getLineHeight(UI_10_FONT_ID) / 2;
       renderer.drawText(UI_10_FONT_ID, textX, titleY, author.c_str(), true);
     }
+
+    // Finished badge: draw a small label above the title when the book is finished
+    if (book.finished) {
+      const char* badge = tr(STR_FINISHED_BADGE);
+      constexpr int badgePadding = 3;
+      const int badgeTextWidth = renderer.getTextWidth(UI_10_FONT_ID, badge);
+      const int badgeBoxWidth = badgeTextWidth + badgePadding * 2;
+      const int badgeBoxHeight = renderer.getLineHeight(UI_10_FONT_ID) + badgePadding;
+      const int badgeX = tileX + hPaddingInSelection;
+      const int badgeY = tileY + hPaddingInSelection;
+      renderer.fillRect(badgeX, badgeY, badgeBoxWidth, badgeBoxHeight, true);
+      renderer.drawText(UI_10_FONT_ID, badgeX + badgePadding, badgeY, badge, false);
+    }
   } else {
     drawEmptyRecents(renderer, rect);
   }

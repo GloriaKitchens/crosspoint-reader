@@ -22,15 +22,17 @@ RecentBooksStore RecentBooksStore::instance;
 
 void RecentBooksStore::addBook(const std::string& path, const std::string& title, const std::string& author,
                                const std::string& coverBmpPath) {
-  // Remove existing entry if present
+  // Remove existing entry if present, preserving the finished flag
+  bool wasFinished = false;
   auto it =
       std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
   if (it != recentBooks.end()) {
+    wasFinished = it->finished;
     recentBooks.erase(it);
   }
 
   // Add to front
-  recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath});
+  recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath, wasFinished});
 
   // Trim to max size
   if (recentBooks.size() > MAX_RECENT_BOOKS) {
@@ -49,6 +51,19 @@ void RecentBooksStore::updateBook(const std::string& path, const std::string& ti
     book.title = title;
     book.author = author;
     book.coverBmpPath = coverBmpPath;
+    saveToFile();
+  }
+}
+
+void RecentBooksStore::setFinished(const std::string& path, bool finished) {
+  auto it =
+      std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
+  if (it != recentBooks.end()) {
+    if (it->finished == finished) {
+      LOG_DBG("RBS", "Book already marked as %s, skipping write", finished ? "finished" : "unfinished");
+      return;
+    }
+    it->finished = finished;
     saveToFile();
   }
 }

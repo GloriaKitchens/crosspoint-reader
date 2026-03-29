@@ -20,6 +20,7 @@ class FileBrowserActivity final : public Activity {
   // Files state
   std::string basepath = "/";
   std::vector<std::string> files;
+  bool showFinishedOnly = false;  // Filter: show only finished EPUB books
 
   // Data loading
   void loadFiles();

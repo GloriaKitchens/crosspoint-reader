@@ -2,6 +2,7 @@
 
 #include <GfxRenderer.h>
 #include <HalStorage.h>
+#include <I18n.h>
 
 #include <cstdint>
 #include <string>
@@ -112,6 +113,19 @@ void Lyra3CoversTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
       for (const auto& line : titleLines) {
         renderer.drawText(SMALL_FONT_ID, tileX + hPaddingInSelection, currentY, line.c_str(), true);
         currentY += titleLineHeight;
+      }
+
+      // Finished badge: small label in the top-left corner of the cover tile
+      if (recentBooks[i].finished) {
+        const char* badge = tr(STR_FINISHED_BADGE);
+        constexpr int badgePadding = 3;
+        const int badgeTextWidth = renderer.getTextWidth(SMALL_FONT_ID, badge);
+        const int badgeBoxWidth = badgeTextWidth + badgePadding * 2;
+        const int badgeBoxHeight = renderer.getLineHeight(SMALL_FONT_ID) + badgePadding;
+        const int badgeX = tileX + hPaddingInSelection + 2;
+        const int badgeY = tileY + hPaddingInSelection + 2;
+        renderer.fillRect(badgeX, badgeY, badgeBoxWidth, badgeBoxHeight, true);
+        renderer.drawText(SMALL_FONT_ID, badgeX + badgePadding, badgeY, badge, false);
       }
     }
   } else {

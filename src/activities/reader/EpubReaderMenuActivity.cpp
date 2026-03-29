@@ -10,18 +10,19 @@
 EpubReaderMenuActivity::EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
                                                const std::string& title, const int currentPage, const int totalPages,
                                                const int bookProgressPercent, const uint8_t currentOrientation,
-                                               const bool hasFootnotes)
+                                               const bool hasFootnotes, const bool isFinished)
     : Activity("EpubReaderMenu", renderer, mappedInput),
       menuItems(buildMenuItems(hasFootnotes)),
       title(title),
       pendingOrientation(currentOrientation),
       currentPage(currentPage),
       totalPages(totalPages),
-      bookProgressPercent(bookProgressPercent) {}
+      bookProgressPercent(bookProgressPercent),
+      isFinished(isFinished) {}
 
 std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuItems(bool hasFootnotes) {
   std::vector<MenuItem> items;
-  items.reserve(10);
+  items.reserve(10 + (hasFootnotes ? 1 : 0));
   items.push_back({MenuAction::SELECT_CHAPTER, StrId::STR_SELECT_CHAPTER});
   if (hasFootnotes) {
     items.push_back({MenuAction::FOOTNOTES, StrId::STR_FOOTNOTES});
@@ -31,6 +32,7 @@ std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuI
   items.push_back({MenuAction::GO_TO_PERCENT, StrId::STR_GO_TO_PERCENT});
   items.push_back({MenuAction::SCREENSHOT, StrId::STR_SCREENSHOT_BUTTON});
   items.push_back({MenuAction::DISPLAY_QR, StrId::STR_DISPLAY_QR});
+  items.push_back({MenuAction::MARK_FINISHED, StrId::STR_MARK_AS_FINISHED});
   items.push_back({MenuAction::GO_HOME, StrId::STR_GO_HOME_BUTTON});
   items.push_back({MenuAction::SYNC, StrId::STR_SYNC_PROGRESS});
   items.push_back({MenuAction::DELETE_CACHE, StrId::STR_DELETE_CACHE});
@@ -132,7 +134,13 @@ void EpubReaderMenuActivity::render(RenderLock&&) {
       renderer.fillRect(contentX, displayY, contentWidth - 1, lineHeight, true);
     }
 
-    renderer.drawText(UI_10_FONT_ID, contentX + 20, displayY, I18N.get(menuItems[i].labelId), !isSelected);
+    if (menuItems[i].action == MenuAction::MARK_FINISHED) {
+      // Show dynamic label based on current finished state.
+      const char* label = isFinished ? tr(STR_MARK_AS_UNFINISHED) : tr(STR_MARK_AS_FINISHED);
+      renderer.drawText(UI_10_FONT_ID, contentX + 20, displayY, label, !isSelected);
+    } else {
+      renderer.drawText(UI_10_FONT_ID, contentX + 20, displayY, I18N.get(menuItems[i].labelId), !isSelected);
+    }
 
     if (menuItems[i].action == MenuAction::ROTATE_SCREEN) {
       // Render current orientation value on the right edge of the content area.
@@ -148,7 +156,6 @@ void EpubReaderMenuActivity::render(RenderLock&&) {
       renderer.drawText(UI_10_FONT_ID, contentX + contentWidth - 20 - width, displayY, value, !isSelected);
     }
   }
-
   // Footer / Hints
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
