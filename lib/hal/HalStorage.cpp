@@ -152,7 +152,7 @@ bool HalStorage::readBlocks(uint32_t lba, uint8_t* buf, uint32_t count) {
     LOG_ERR("STORAGE", "readBlocks: SD card object is null");
     return false;
   }
-  return card->readBlocks(lba, buf, count);
+  return card->readSectors(lba, buf, count);
 }
 
 bool HalStorage::writeBlocks(uint32_t lba, const uint8_t* buf, uint32_t count) {
@@ -161,7 +161,7 @@ bool HalStorage::writeBlocks(uint32_t lba, const uint8_t* buf, uint32_t count) {
     LOG_ERR("STORAGE", "writeBlocks: SD card object is null");
     return false;
   }
-  return card->writeBlocks(lba, buf, count);
+  return card->writeSectors(lba, buf, count);
 }
 
 // HalFile implementation
