@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,7 @@ struct RecentBook {
   std::string author;
   std::string coverBmpPath;
   bool finished = false;
+  uint8_t progressPercent = 0;
 
   bool operator==(const RecentBook& other) const { return path == other.path; }
 };
@@ -40,6 +42,9 @@ class RecentBooksStore {
 
   // Update the finished state of a book already in the list
   void setFinished(const std::string& path, bool finished);
+
+  // Update the reading progress percentage (0–100) of a book already in the list
+  void setProgressPercent(const std::string& path, uint8_t percent);
 
   // Get the list of recent books (most recent first)
   const std::vector<RecentBook>& getBooks() const { return recentBooks; }

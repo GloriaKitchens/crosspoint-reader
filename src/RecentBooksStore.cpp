@@ -22,17 +22,19 @@ RecentBooksStore RecentBooksStore::instance;
 
 void RecentBooksStore::addBook(const std::string& path, const std::string& title, const std::string& author,
                                const std::string& coverBmpPath) {
-  // Remove existing entry if present, preserving the finished flag
+  // Remove existing entry if present, preserving the finished flag and progress
   bool wasFinished = false;
+  uint8_t wasProgressPercent = 0;
   auto it =
       std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
   if (it != recentBooks.end()) {
     wasFinished = it->finished;
+    wasProgressPercent = it->progressPercent;
     recentBooks.erase(it);
   }
 
   // Add to front
-  recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath, wasFinished});
+  recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath, wasFinished, wasProgressPercent});
 
   // Trim to max size
   if (recentBooks.size() > MAX_RECENT_BOOKS) {
@@ -64,6 +66,18 @@ void RecentBooksStore::setFinished(const std::string& path, bool finished) {
       return;
     }
     it->finished = finished;
+    saveToFile();
+  }
+}
+
+void RecentBooksStore::setProgressPercent(const std::string& path, uint8_t percent) {
+  auto it =
+      std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
+  if (it != recentBooks.end()) {
+    if (it->progressPercent == percent) {
+      return;
+    }
+    it->progressPercent = percent;
     saveToFile();
   }
 }

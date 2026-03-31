@@ -336,6 +336,12 @@ void XtcReaderActivity::saveProgress() const {
     f.write(data, 4);
     f.close();
   }
+  // Update per-book progress in the recent books store
+  const auto pageCount = xtc->getPageCount();
+  if (pageCount > 0) {
+    const auto percent = static_cast<uint8_t>((static_cast<uint64_t>(currentPage + 1) * 100) / pageCount);
+    RECENT_BOOKS.setProgressPercent(xtc->getPath(), percent);
+  }
 }
 
 void XtcReaderActivity::loadProgress() {
