@@ -748,7 +748,7 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
   }
   // Update per-book progress in the recent books store
   if (epub && epub->getBookSize() > 0 && pageCount > 0) {
-    const float chapterProgress = static_cast<float>(currentPage) / static_cast<float>(pageCount);
+    const float chapterProgress = static_cast<float>(currentPage + 1) / static_cast<float>(pageCount);
     const float bookProgress = epub->calculateProgress(spineIndex, chapterProgress) * 100.0f;
     const auto percent = static_cast<uint8_t>(clampPercent(static_cast<int>(bookProgress + 0.5f)));
     RECENT_BOOKS.setProgressPercent(epub->getPath(), percent);

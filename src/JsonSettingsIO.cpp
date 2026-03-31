@@ -330,7 +330,8 @@ bool JsonSettingsIO::loadRecentBooks(RecentBooksStore& store, const char* json) 
     book.author = obj["author"] | std::string("");
     book.coverBmpPath = obj["coverBmpPath"] | std::string("");
     book.finished = obj["finished"] | false;
-    book.progressPercent = obj["progressPercent"] | static_cast<uint8_t>(0);
+    const int rawProgress = obj["progressPercent"] | 0;
+    book.progressPercent = static_cast<uint8_t>(rawProgress < 0 ? 0 : (rawProgress > 100 ? 100 : rawProgress));
     store.recentBooks.push_back(book);
   }
 
