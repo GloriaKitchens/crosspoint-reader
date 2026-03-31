@@ -39,7 +39,10 @@ class HalStorage {
   bool rmdir(const char* path);
 
   // Raw block-level access (for USB MSC).
-  // Must only be called after end() has been used to unmount the filesystem.
+  // sectorCount() may be called while the filesystem is mounted; it is mutex-protected.
+  // readBlocks() and writeBlocks() must only be called after end() has unmounted the
+  // filesystem — at that point no other firmware code should be issuing SD calls, so
+  // those methods intentionally skip the mutex (documented in HalStorage.cpp).
   uint32_t sectorCount();
   bool readBlocks(uint32_t lba, uint8_t* buf, uint32_t count);
   bool writeBlocks(uint32_t lba, const uint8_t* buf, uint32_t count);

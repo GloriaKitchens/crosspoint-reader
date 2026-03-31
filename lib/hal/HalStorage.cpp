@@ -131,6 +131,7 @@ bool HalStorage::openFileForWrite(const char* moduleName, const String& path, Ha
 bool HalStorage::removeDir(const char* path) { HAL_STORAGE_WRAPPED_CALL(removeDir, path); }
 
 uint32_t HalStorage::sectorCount() {
+  StorageLock lock;
   auto* card = SDCard.card();
   if (!card) {
     LOG_ERR("STORAGE", "sectorCount: SD card object is null");
