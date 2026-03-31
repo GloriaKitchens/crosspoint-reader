@@ -68,6 +68,18 @@ void RecentBooksStore::setFinished(const std::string& path, bool finished) {
   }
 }
 
+void RecentBooksStore::setProgressPercent(const std::string& path, uint8_t percent) {
+  auto it =
+      std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
+  if (it != recentBooks.end()) {
+    if (it->progressPercent == percent) {
+      return;
+    }
+    it->progressPercent = percent;
+    saveToFile();
+  }
+}
+
 bool RecentBooksStore::saveToFile() const {
   Storage.mkdir("/.crosspoint");
   return JsonSettingsIO::saveRecentBooks(*this, RECENT_BOOKS_FILE_JSON);

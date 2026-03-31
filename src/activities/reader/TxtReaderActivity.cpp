@@ -406,6 +406,11 @@ void TxtReaderActivity::saveProgress() const {
     f.write(data, 4);
     f.close();
   }
+  // Update per-book progress in the recent books store
+  if (totalPages > 0) {
+    const auto percent = static_cast<uint8_t>((static_cast<uint32_t>(currentPage + 1) * 100) / static_cast<uint32_t>(totalPages));
+    RECENT_BOOKS.setProgressPercent(txt->getPath(), percent);
+  }
 }
 
 void TxtReaderActivity::loadProgress() {

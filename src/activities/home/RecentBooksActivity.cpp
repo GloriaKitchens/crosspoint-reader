@@ -102,7 +102,17 @@ void RecentBooksActivity::render(RenderLock&&) {
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, recentBooks.size(), selectorIndex,
         [this](int index) { return recentBooks[index].title; }, [this](int index) { return recentBooks[index].author; },
         [this](int index) { return UITheme::getFileIcon(recentBooks[index].path); },
-        [this](int index) { return recentBooks[index].finished ? std::string(tr(STR_FINISHED_BADGE)) : std::string(); });
+        [this](int index) {
+          if (recentBooks[index].finished) {
+            return std::string(tr(STR_FINISHED_BADGE));
+          }
+          if (recentBooks[index].progressPercent > 0) {
+            char buf[8];
+            snprintf(buf, sizeof(buf), "%u%%", recentBooks[index].progressPercent);
+            return std::string(buf);
+          }
+          return std::string();
+        });
   }
 
   // Help text
