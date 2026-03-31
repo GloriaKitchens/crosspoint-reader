@@ -20,6 +20,13 @@ HalStorage::HalStorage() {
 // filesystem operations that may be in-flight when called at runtime (e.g. from UsbStorageActivity).
 // ready() is read-only and called only from setup; no lock required.
 
+// StorageLock must be defined before begin()/end() which use it below.
+class HalStorage::StorageLock {
+ public:
+  StorageLock() { xSemaphoreTake(HalStorage::getInstance().storageMutex, portMAX_DELAY); }
+  ~StorageLock() { xSemaphoreGive(HalStorage::getInstance().storageMutex); }
+};
+
 bool HalStorage::begin() {
   StorageLock lock;
   return SDCard.begin();
@@ -33,12 +40,6 @@ void HalStorage::end() {
 bool HalStorage::ready() const { return SDCard.ready(); }
 
 // For the rest of the methods, we acquire the mutex to ensure thread safety
-
-class HalStorage::StorageLock {
- public:
-  StorageLock() { xSemaphoreTake(HalStorage::getInstance().storageMutex, portMAX_DELAY); }
-  ~StorageLock() { xSemaphoreGive(HalStorage::getInstance().storageMutex); }
-};
 
 #define HAL_STORAGE_WRAPPED_CALL(method, ...) \
   HalStorage::StorageLock lock;               \
