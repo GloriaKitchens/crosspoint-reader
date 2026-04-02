@@ -6,6 +6,15 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <USB.h>
+#include <soc/soc_caps.h>
+
+// USBMSC requires USB OTG hardware (not present on ESP32-C3 which only has USB Serial/JTAG).
+#if defined(SOC_USB_OTG_SUPPORTED) && SOC_USB_OTG_SUPPORTED
+#include <USBMSC.h>
+#define USB_MSC_HW_AVAILABLE 1
+#else
+#define USB_MSC_HW_AVAILABLE 0
+#endif
 
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
@@ -18,6 +27,8 @@
 // These must be static functions (not lambdas with captures) to avoid
 // heap-allocated closures and to satisfy the function-pointer requirement.
 // ---------------------------------------------------------------------------
+
+#if USB_MSC_HW_AVAILABLE
 
 static int32_t usbMscOnRead(uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize) {
   if (offset % 512 != 0) {
@@ -55,6 +66,8 @@ static int32_t usbMscOnWrite(uint32_t lba, uint32_t offset, uint8_t* buffer, uin
   return static_cast<int32_t>(bufsize);
 }
 
+#endif  // USB_MSC_HW_AVAILABLE
+
 // ---------------------------------------------------------------------------
 
 void UsbStorageActivity::onEnter() {
@@ -62,6 +75,11 @@ void UsbStorageActivity::onEnter() {
 
   LOG_INF("USB_MSC", "Entering USB storage mode");
 
+#if !USB_MSC_HW_AVAILABLE
+  LOG_ERR("USB_MSC", "USB MSC is not supported on this hardware (no USB OTG)");
+  activityManager.goHome();
+  return;
+#else
   // Flush app state before unmounting so nothing is lost if the card is modified by the host.
   APP_STATE.saveToFile();
 
@@ -78,23 +96,28 @@ void UsbStorageActivity::onEnter() {
   Storage.end();
   LOG_INF("USB_MSC", "SD card unmounted");
 
+  // Allocate the USBMSC instance for this session.
+  msc = new USBMSC();
+
   // Configure the MSC device identity.
-  msc.vendorID("Xteink");
-  msc.productID("X4 SD Card");
-  msc.productRevision("1.0");
+  msc->vendorID("Xteink");
+  msc->productID("X4 SD Card");
+  msc->productRevision("1.0");
 
   // Register raw-block callbacks.
-  msc.onRead(usbMscOnRead);
-  msc.onWrite(usbMscOnWrite);
+  msc->onRead(usbMscOnRead);
+  msc->onWrite(usbMscOnWrite);
 
   // Advertise the media as present and writable.
-  msc.mediaPresent(true);
+  msc->mediaPresent(true);
 
-  if (msc.begin(sectors, 512)) {
+  if (msc->begin(sectors, 512)) {
     mscStarted = true;
     LOG_INF("USB_MSC", "USB MSC started: %u blocks x 512 bytes", sectors);
   } else {
     LOG_ERR("USB_MSC", "USB MSC begin() failed — remounting SD card");
+    delete msc;
+    msc = nullptr;
     if (!Storage.begin()) {
       LOG_ERR("USB_MSC", "SD card remount also failed after MSC begin() error");
     }
@@ -103,14 +126,20 @@ void UsbStorageActivity::onEnter() {
   }
 
   requestUpdate();
+#endif  // USB_MSC_HW_AVAILABLE
 }
 
 void UsbStorageActivity::onExit() {
+#if USB_MSC_HW_AVAILABLE
   if (mscStarted) {
-    msc.end();
+    msc->end();
     mscStarted = false;
     LOG_INF("USB_MSC", "USB MSC stopped");
   }
+
+  delete msc;
+  msc = nullptr;
+#endif  // USB_MSC_HW_AVAILABLE
 
   // Remount the filesystem so the rest of the firmware can use it again.
   if (!Storage.begin()) {

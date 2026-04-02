@@ -1,8 +1,11 @@
 #pragma once
 
-#include <USBMSC.h>
-
 #include "activities/Activity.h"
+
+// USBMSC is only available on chips with USB OTG hardware (e.g. ESP32-S3).
+// ESP32-C3 only has USB Serial/JTAG (SOC_USB_OTG_SUPPORTED is not defined),
+// so we forward-declare here and guard the implementation in the .cpp.
+class USBMSC;
 
 /**
  * UsbStorageActivity
@@ -17,7 +20,7 @@
  *   render()  — draws a simple holding screen with button hints.
  */
 class UsbStorageActivity final : public Activity {
-  USBMSC msc;
+  USBMSC* msc = nullptr;  // Heap-allocated in onEnter(); null on unsupported hardware
   bool mscStarted = false;
 
   void exitUsbStorage();
