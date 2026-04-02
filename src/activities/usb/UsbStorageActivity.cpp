@@ -77,7 +77,8 @@ void UsbStorageActivity::onEnter() {
 
 #if !USB_MSC_HW_AVAILABLE
   LOG_ERR("USB_MSC", "USB MSC is not supported on this hardware (no USB OTG)");
-  activityManager.goHome();
+  notSupported = true;
+  requestUpdate();
   return;
 #else
   // Flush app state before unmounting so nothing is lost if the card is modified by the host.
@@ -152,6 +153,15 @@ void UsbStorageActivity::onExit() {
 }
 
 void UsbStorageActivity::loop() {
+  // If hardware doesn't support USB MSC, wait for Back and go home.
+  if (notSupported) {
+    if (mappedInput.wasPressed(MappedInputManager::Button::Back) ||
+        mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+      activityManager.goHome();
+    }
+    return;
+  }
+
   // Back button → user requested disconnect.
   if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
     LOG_INF("USB_MSC", "Back pressed — exiting USB storage mode");
@@ -174,6 +184,24 @@ void UsbStorageActivity::render(RenderLock&&) {
   const auto& metrics = UITheme::getInstance().getMetrics();
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
+
+  if (notSupported) {
+    GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
+                   tr(STR_USB_NOT_SUPPORTED));
+
+    const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
+    const int contentBottom = pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing;
+    const int lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
+    const int textTop = contentTop + (contentBottom - contentTop - lineHeight) / 2;
+
+    renderer.drawCenteredText(UI_10_FONT_ID, textTop, tr(STR_USB_NOT_SUPPORTED_DESC));
+
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), nullptr, nullptr, nullptr);
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+
+    renderer.displayBuffer();
+    return;
+  }
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_USB_STORAGE));
 

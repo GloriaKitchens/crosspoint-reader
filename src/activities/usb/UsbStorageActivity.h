@@ -22,6 +22,7 @@ class USBMSC;
 class UsbStorageActivity final : public Activity {
   USBMSC* msc = nullptr;  // Heap-allocated in onEnter(); null on unsupported hardware
   bool mscStarted = false;
+  bool notSupported = false;  // True when hardware lacks USB OTG; shows an error screen
 
   void exitUsbStorage();
 

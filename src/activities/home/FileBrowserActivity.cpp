@@ -91,9 +91,7 @@ void FileBrowserActivity::loadFiles() {
     }
 
     if (file.isDirectory()) {
-      if (!showFinishedOnly) {
-        files.emplace_back(std::string(name) + "/");
-      }
+      files.emplace_back(std::string(name) + "/");
     } else {
       std::string_view filename{name};
       if (FsHelpers::hasEpubExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
