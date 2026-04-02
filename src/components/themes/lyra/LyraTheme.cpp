@@ -118,6 +118,8 @@ const uint8_t* iconForName(UIIcon icon, int size) {
         return WifiIcon;
       case UIIcon::Hotspot:
         return HotspotIcon;
+      case UIIcon::USB:
+        return TransferIcon;
       default:
         return nullptr;
     }

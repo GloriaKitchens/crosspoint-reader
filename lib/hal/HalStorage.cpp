@@ -16,19 +16,30 @@ HalStorage::HalStorage() {
   assert(storageMutex != nullptr);
 }
 
-// begin() and ready() are only called from setup, no need to acquire mutex for them
+// begin()/end() are protected by the storage mutex to prevent races with other
+// filesystem operations that may be in-flight when called at runtime (e.g. from UsbStorageActivity).
+// ready() is read-only and called only from setup; no lock required.
 
-bool HalStorage::begin() { return SDCard.begin(); }
-
-bool HalStorage::ready() const { return SDCard.ready(); }
-
-// For the rest of the methods, we acquire the mutex to ensure thread safety
-
+// StorageLock must be defined before begin()/end() which use it below.
 class HalStorage::StorageLock {
  public:
   StorageLock() { xSemaphoreTake(HalStorage::getInstance().storageMutex, portMAX_DELAY); }
   ~StorageLock() { xSemaphoreGive(HalStorage::getInstance().storageMutex); }
 };
+
+bool HalStorage::begin() {
+  StorageLock lock;
+  return SDCard.begin();
+}
+
+void HalStorage::end() {
+  StorageLock lock;
+  SDCard.end();
+}
+
+bool HalStorage::ready() const { return SDCard.ready(); }
+
+// For the rest of the methods, we acquire the mutex to ensure thread safety
 
 #define HAL_STORAGE_WRAPPED_CALL(method, ...) \
   HalStorage::StorageLock lock;               \
@@ -119,6 +130,39 @@ bool HalStorage::openFileForWrite(const char* moduleName, const String& path, Ha
 }
 
 bool HalStorage::removeDir(const char* path) { HAL_STORAGE_WRAPPED_CALL(removeDir, path); }
+
+uint32_t HalStorage::sectorCount() {
+  StorageLock lock;
+  auto* card = SDCard.card();
+  if (!card) {
+    LOG_ERR("STORAGE", "sectorCount: SD card object is null");
+    return 0;
+  }
+  return card->sectorCount();
+}
+
+// Note: readBlocks/writeBlocks intentionally do NOT acquire storageMutex.
+// They are only called from the USB MSC context, which requires that the
+// SdFat filesystem has already been unmounted via end().  After end(),
+// no other firmware code should be issuing filesystem calls, so concurrent
+// access via the mutex is not a concern.
+bool HalStorage::readBlocks(uint32_t lba, uint8_t* buf, uint32_t count) {
+  auto* card = SDCard.card();
+  if (!card) {
+    LOG_ERR("STORAGE", "readBlocks: SD card object is null");
+    return false;
+  }
+  return card->readSectors(lba, buf, count);
+}
+
+bool HalStorage::writeBlocks(uint32_t lba, const uint8_t* buf, uint32_t count) {
+  auto* card = SDCard.card();
+  if (!card) {
+    LOG_ERR("STORAGE", "writeBlocks: SD card object is null");
+    return false;
+  }
+  return card->writeSectors(lba, buf, count);
+}
 
 // HalFile implementation
 // Allow doing file operations while ensuring thread safety via HalStorage's mutex.

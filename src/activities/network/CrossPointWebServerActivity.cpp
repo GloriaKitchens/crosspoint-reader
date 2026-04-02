@@ -105,8 +105,16 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
     modeName = "Connect to Calibre";
   } else if (mode == NetworkMode::CREATE_HOTSPOT) {
     modeName = "Create Hotspot";
+  } else if (mode == NetworkMode::USB_STORAGE) {
+    modeName = "USB Storage";
   }
   LOG_DBG("WEBACT", "Network mode selected: %s", modeName);
+
+  // USB storage mode is handled by a dedicated activity; navigate there now.
+  if (mode == NetworkMode::USB_STORAGE) {
+    activityManager.goToUsbStorage();
+    return;
+  }
 
   networkMode = mode;
   isApMode = (mode == NetworkMode::CREATE_HOTSPOT);
