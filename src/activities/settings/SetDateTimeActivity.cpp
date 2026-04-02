@@ -5,6 +5,7 @@
 #include <Logging.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <ctime>
 #include <sys/time.h>
 
@@ -32,13 +33,17 @@ void SetDateTimeActivity::onEnter() {
   if (now >= EPOCH_THRESHOLD_2020) {
     struct tm t;
     localtime_r(&now, &t);
-    year   = t.tm_year + 1900;
-    month  = t.tm_mon + 1;
-    day    = t.tm_mday;
+    const int currentYear  = t.tm_year + 1900;
+    const int currentMonth = t.tm_mon + 1;
+    const int currentDay   = t.tm_mday;
+
+    year   = std::clamp(currentYear, YEAR_MIN, YEAR_MAX);
+    month  = currentMonth;
+    day    = std::min(currentDay, daysInMonth(year, month));
     hour   = t.tm_hour;
     minute = t.tm_min;
   } else {
-    year   = 2024;
+    year   = std::clamp(2024, YEAR_MIN, YEAR_MAX);
     month  = 1;
     day    = 1;
     hour   = 0;
@@ -85,7 +90,7 @@ void SetDateTimeActivity::adjustField(int delta) {
   requestUpdate();
 }
 
-void SetDateTimeActivity::saveDateTime() const {
+bool SetDateTimeActivity::saveDateTime() const {
   struct tm t = {};
   t.tm_year  = year - 1900;
   t.tm_mon   = month - 1;
@@ -98,14 +103,19 @@ void SetDateTimeActivity::saveDateTime() const {
   const time_t epochTime = mktime(&t);
   if (epochTime == static_cast<time_t>(-1)) {
     LOG_ERR("SetDT", "mktime failed for %04d-%02d-%02d %02d:%02d", year, month, day, hour, minute);
-    return;
+    return false;
   }
 
   struct timeval tv;
   tv.tv_sec  = epochTime;
   tv.tv_usec = 0;
-  settimeofday(&tv, nullptr);
+  if (settimeofday(&tv, nullptr) != 0) {
+    LOG_ERR("SetDT", "settimeofday failed (errno %d)", errno);
+    return false;
+  }
+
   LOG_INF("SetDT", "Date/time set: %04d-%02d-%02d %02d:%02d", year, month, day, hour, minute);
+  return true;
 }
 
 void SetDateTimeActivity::loop() {
@@ -115,8 +125,9 @@ void SetDateTimeActivity::loop() {
   }
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    saveDateTime();
-    finish();
+    if (saveDateTime()) {
+      finish();
+    }
     return;
   }
 

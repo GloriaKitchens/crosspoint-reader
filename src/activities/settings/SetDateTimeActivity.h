@@ -16,7 +16,7 @@ class SetDateTimeActivity final : public Activity {
   int selectedField = 0;
 
   void adjustField(int delta);
-  void saveDateTime() const;
+  bool saveDateTime() const;
 
   static bool isLeapYear(int year);
   static int daysInMonth(int year, int month);
