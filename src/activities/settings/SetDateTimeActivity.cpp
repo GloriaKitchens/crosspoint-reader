@@ -119,36 +119,36 @@ bool SetDateTimeActivity::saveDateTime() const {
 }
 
 void SetDateTimeActivity::loop() {
-  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+  if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
     finish();
     return;
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+  if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
     if (saveDateTime()) {
       finish();
     }
     return;
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::PageBack)) {
+  if (mappedInput.wasPressed(MappedInputManager::Button::PageBack)) {
     selectedField = (selectedField + FIELD_COUNT - 1) % FIELD_COUNT;
     requestUpdate();
     return;
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::PageForward)) {
+  if (mappedInput.wasPressed(MappedInputManager::Button::PageForward)) {
     selectedField = (selectedField + 1) % FIELD_COUNT;
     requestUpdate();
     return;
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::Left)) {
+  if (mappedInput.wasPressed(MappedInputManager::Button::Left)) {
     adjustField(-1);
     return;
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::Right)) {
+  if (mappedInput.wasPressed(MappedInputManager::Button::Right)) {
     adjustField(+1);
     return;
   }
