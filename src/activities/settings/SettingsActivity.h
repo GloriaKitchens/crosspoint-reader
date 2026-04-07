@@ -22,6 +22,7 @@ enum class SettingAction {
   CheckForUpdates,
   Language,
   SetDateTime,
+  DeviceSync,
 };
 
 struct SettingInfo {
